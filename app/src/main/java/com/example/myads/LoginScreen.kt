@@ -10,11 +10,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myads.ui.theme.MyAdsTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(onLoginSuccess: (String) -> Unit) {
     var deviceId by remember { mutableStateOf("") }
     var secretKey by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -38,12 +44,22 @@ fun LoginScreen() {
             modifier = Modifier.padding(bottom = 48.dp)
         )
 
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
         OutlinedTextField(
             value = deviceId,
             onValueChange = { deviceId = it },
             label = { Text("Device ID") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -53,19 +69,45 @@ fun LoginScreen() {
             onValueChange = { secretKey = it },
             label = { Text("Secret Key") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = { /* TODO: Handle login */ },
+            onClick = {
+                scope.launch {
+                    isLoading = true
+                    errorMessage = null
+                    // Simulate Dummy API Call
+                    delay(2000)
+                    
+                    if (deviceId.isNotBlank() && secretKey == "1234") {
+                        // Success Logic
+                        onLoginSuccess(deviceId)
+                    } else {
+                        // Unauthenticated Logic
+                        errorMessage = "Invalid Device ID or Secret Key"
+                    }
+                    isLoading = false
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
+            enabled = !isLoading
         ) {
-            Text("Activate Device", fontSize = 18.sp)
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Activate Device", fontSize = 18.sp)
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -75,7 +117,8 @@ fun LoginScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
+            enabled = !isLoading
         ) {
             Text("Scan QR Code", fontSize = 16.sp)
         }
@@ -87,7 +130,7 @@ fun LoginScreen() {
             shape = MaterialTheme.shapes.small
         ) {
             Text(
-                text = "Status: Not Activated",
+                text = if (isLoading) "Checking activation..." else "Status: Not Activated",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.labelMedium
             )
@@ -99,6 +142,6 @@ fun LoginScreen() {
 @Composable
 fun LoginScreenPreview() {
     MyAdsTheme {
-        LoginScreen()
+        LoginScreen(onLoginSuccess = {})
     }
 }

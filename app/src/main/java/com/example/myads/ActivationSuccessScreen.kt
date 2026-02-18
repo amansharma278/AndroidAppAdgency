@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.example.myads.ui.theme.MyAdsTheme
 
 @Composable
-fun ActivationSuccessScreen() {
+fun ActivationSuccessScreen(deviceName: String, location: String, onStartSyncing: () -> Unit) {
     val infiniteTransition = rememberInfiniteTransition(label = "success_animation")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -66,7 +66,7 @@ fun ActivationSuccessScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Device Name", style = MaterialTheme.typography.labelLarge)
-                    Text(text = "Lobby Display 01", fontWeight = FontWeight.Medium)
+                    Text(text = deviceName, fontWeight = FontWeight.Medium)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -74,7 +74,7 @@ fun ActivationSuccessScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Location", style = MaterialTheme.typography.labelLarge)
-                    Text(text = "New York Office", fontWeight = FontWeight.Medium)
+                    Text(text = location, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -82,7 +82,7 @@ fun ActivationSuccessScreen() {
         Spacer(modifier = Modifier.height(48.dp))
 
         Button(
-            onClick = { /* TODO: Handle start syncing */ },
+            onClick = onStartSyncing,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -97,6 +97,6 @@ fun ActivationSuccessScreen() {
 @Composable
 fun ActivationSuccessScreenPreview() {
     MyAdsTheme {
-        ActivationSuccessScreen()
+        ActivationSuccessScreen(deviceName = "Lobby Display 01", location = "New York Office", onStartSyncing = {})
     }
 }
