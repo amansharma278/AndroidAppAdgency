@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                             })
                         }
                         is Screen.Playback -> {
-                            AutoPlaybackScreen(onAdminGesture = {
+                            AutoPlaybackScreen(ad = screen.ad, onAdminGesture = {
                                 currentScreen = Screen.Home
                             })
                         }
