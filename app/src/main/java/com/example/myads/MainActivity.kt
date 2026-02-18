@@ -14,6 +14,7 @@ sealed class Screen {
     object Login : Screen()
     data class ActivationSuccess(val deviceId: String) : Screen()
     object Home : Screen()
+    data class Playback(val ad: Ad) : Screen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -43,7 +44,14 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         is Screen.Home -> {
-                            VideoListScreen()
+                            VideoListScreen(onAdClick = { ad ->
+                                currentScreen = Screen.Playback(ad)
+                            })
+                        }
+                        is Screen.Playback -> {
+                            AutoPlaybackScreen(onAdminGesture = {
+                                currentScreen = Screen.Home
+                            })
                         }
                     }
                 }

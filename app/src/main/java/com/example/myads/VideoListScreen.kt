@@ -17,15 +17,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.myads.ui.theme.MyAdsTheme
 
-data class Ad(val id: Int, val title: String, val duration: String, val remainingPlays: Int, val schedule: String, val status: String)
+data class Ad(val id: Int, val title: String, val duration: String, val remainingPlays: Int, val schedule: String, val status: String, val videoUrl: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoListScreen() {
+fun VideoListScreen(onAdClick: (Ad) -> Unit = {}) {
     val ads = listOf(
-        Ad(1, "Summer Sale", "30s", 10, "10:00 - 12:00", "Active"),
-        Ad(2, "New Product Launch", "60s", 5, "14:00 - 15:00", "Scheduled"),
-        Ad(3, "Holiday Greetings", "15s", 100, "08:00 - 20:00", "Expired")
+        Ad(1, "Summer Sale", "30s", 10, "10:00 - 12:00", "Active", "https://www.w3schools.com/tags/mov_bbb.mp4"),
+        Ad(2, "New Product Launch", "60s", 5, "14:00 - 15:00", "Scheduled", "https://www.w3schools.com/tags/mov_bbb.mp4"),
+        Ad(3, "Holiday Greetings", "15s", 100, "08:00 - 20:00", "Expired", "https://www.w3schools.com/tags/mov_bbb.mp4")
     )
 
     Scaffold(
@@ -51,7 +51,7 @@ fun VideoListScreen() {
         ) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
             items(ads) { ad ->
-                AdCard(ad)
+                AdCard(ad, onAdClick = onAdClick)
             }
             item { Spacer(modifier = Modifier.height(8.dp)) }
         }
@@ -60,9 +60,9 @@ fun VideoListScreen() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdCard(ad: Ad) {
+fun AdCard(ad: Ad, onAdClick: (Ad) -> Unit) {
     Card(
-        onClick = { /* TODO */ },
+        onClick = { onAdClick(ad) },
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
