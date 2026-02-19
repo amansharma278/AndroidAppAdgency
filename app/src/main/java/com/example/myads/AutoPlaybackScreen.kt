@@ -1,5 +1,6 @@
 package com.example.myads
 
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -18,8 +19,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,30 +42,79 @@ import kotlinx.coroutines.isActive
 @Composable
 fun AutoPlaybackScreen(ad: Ad? = null, onAdminGesture: () -> Unit = {}) {
     val context = LocalContext.current
+    val currentAd by rememberUpdatedState(ad)
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             repeatMode = Player.REPEAT_MODE_ALL
-            ad?.videoUrl?.let { url ->
-                setMediaItem(MediaItem.fromUri(url))
-                prepare()
-                playWhenReady = true
-            }
+
+            addListener(object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                        Log.d("AutoPlaybackScreen", "Video Finished (Looping)")
+                        performDummyApiCall(currentAd?.id, "FINISHED_AND_REPEATING")
+                    }
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    when (playbackState) {
+                        Player.STATE_ENDED -> {
+                            Log.d("AutoPlaybackScreen", "Playback State: ENDED")
+                            performDummyApiCall(currentAd?.id, "FINISHED")
+                        }
+                        Player.STATE_READY -> {
+                            Log.d("AutoPlaybackScreen", "Playback State: READY. Duration: ${duration}ms")
+                        }
+                    }
+                }
+            })
+        }
+    }
+
+    LaunchedEffect(currentAd) {
+        currentAd?.videoUrl?.let { url ->
+            Log.d("AutoPlaybackScreen", "Loading Video: $url")
+            val mediaItem = MediaItem.fromUri(url)
+            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
+        } ?: run {
+            exoPlayer.stop()
+            exoPlayer.clearMediaItems()
         }
     }
 
     var progress by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(exoPlayer) {
+    LaunchedEffect(exoPlayer, currentAd) {
+        var notifiedAboutToEnd = false
         while (isActive) {
-            if (exoPlayer.duration > 0) {
-                progress = exoPlayer.currentPosition.toFloat() / exoPlayer.duration
+            if (exoPlayer.playbackState == Player.STATE_READY) {
+                val duration = exoPlayer.duration
+                val position = exoPlayer.currentPosition
+
+                if (duration > 0) {
+                    progress = position.toFloat() / duration
+
+                    val remainingTime = duration - position
+                    // About to end: within last 2 seconds
+                    if (remainingTime <= 2000 && !notifiedAboutToEnd) {
+                        Log.d("AutoPlaybackScreen", "About to end: ${remainingTime}ms remaining")
+                        performDummyApiCall(currentAd?.id, "ABOUT_TO_END")
+                        notifiedAboutToEnd = true
+                    }
+
+                    // Reset flag when it loops back to start (position is near 0)
+                    if (position < 1000 && notifiedAboutToEnd) {
+                        notifiedAboutToEnd = false
+                    }
+                }
             }
-            delay(1000)
+            delay(500) // Increased frequency for better precision
         }
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(exoPlayer) {
         onDispose {
             exoPlayer.release()
         }
@@ -75,7 +125,6 @@ fun AutoPlaybackScreen(ad: Ad? = null, onAdminGesture: () -> Unit = {}) {
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Full-screen video player
         AndroidView(
             factory = {
                 PlayerView(context).apply {
@@ -103,7 +152,6 @@ fun AutoPlaybackScreen(ad: Ad? = null, onAdminGesture: () -> Unit = {}) {
             }
         }
 
-        // Hidden Admin Gesture Area (e.g., top-left corner)
         Box(
             modifier = Modifier
                 .size(64.dp)
@@ -111,7 +159,6 @@ fun AutoPlaybackScreen(ad: Ad? = null, onAdminGesture: () -> Unit = {}) {
                 .clickable(onClick = onAdminGesture)
         )
 
-        // Optional small bottom progress bar
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier
@@ -124,10 +171,14 @@ fun AutoPlaybackScreen(ad: Ad? = null, onAdminGesture: () -> Unit = {}) {
     }
 }
 
+private fun performDummyApiCall(adId: Int?, event: String) {
+    Log.d("AutoPlaybackScreen", ">>>> API CALL [Ad ID: $adId] | Event: $event")
+}
+
 @Preview(showBackground = true, device = "spec:width=1920dp,height=1080dp,navigation=buttons")
 @Composable
 fun AutoPlaybackScreenPreview() {
     MyAdsTheme {
-        AutoPlaybackScreen()
+        AutoPlaybackScreen(ad = Ad(1, "Preview", "30s", 1, " ", "Active", "https://www.w3schools.com/tags/mov_bbb.mp4"))
     }
 }
