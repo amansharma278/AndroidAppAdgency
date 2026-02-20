@@ -14,7 +14,10 @@ sealed class VideoUiState {
     data class Error(val message: String) : VideoUiState()
 }
 
-class VideoViewModel(private val apiService: ApiService) : ViewModel() {
+class VideoViewModel(
+    private val apiService: ApiService,
+    private val deviceDetailsManager: DeviceDetailsManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<VideoUiState>(VideoUiState.Loading)
     val uiState: StateFlow<VideoUiState> = _uiState
@@ -24,8 +27,9 @@ class VideoViewModel(private val apiService: ApiService) : ViewModel() {
     fun fetchNextAd() {
         viewModelScope.launch {
             _uiState.value = VideoUiState.Loading
+            val deviceId = deviceDetailsManager.getDeviceId() ?: return@launch
             try {
-                val response = apiService.getNextAd()
+                val response = apiService.getNextAd(deviceId)
                 if (response.isSuccessful && response.body() != null) {
                     val ad = response.body()!!
                     _uiState.value = VideoUiState.Success(ad)
@@ -41,8 +45,9 @@ class VideoViewModel(private val apiService: ApiService) : ViewModel() {
 
     private fun addAdToQueue(ad: Ad) {
         viewModelScope.launch {
+            val deviceId = deviceDetailsManager.getDeviceId() ?: return@launch
             try {
-                apiService.addAdToQueue(AdQueueRequest(1, ad.id, "In-Queue"))
+                apiService.addAdToQueue(deviceId, AdQueueRequest(deviceId, ad.id, "In-Queue"))
                 updatePlayingStatus(ad.id, "Started")
                 startStatusUpdates(ad.id)
             } catch (e: Exception) {
@@ -53,8 +58,9 @@ class VideoViewModel(private val apiService: ApiService) : ViewModel() {
 
     private fun updatePlayingStatus(adId: Int, status: String) {
         viewModelScope.launch {
+            val deviceId = deviceDetailsManager.getDeviceId() ?: return@launch
             try {
-                apiService.updatePlayingStatus(UpdatePlayingStatusRequest(adId, status))
+                apiService.updatePlayingStatus(deviceId, UpdatePlayingStatusRequest(adId, status))
             } catch (e: Exception) {
                 // Handle error
             }

@@ -22,12 +22,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+    val deviceDetailsManager = remember { DeviceDetailsManager(context) }
     val apiService = remember { NetworkModule.provideApiService(context) }
 
     LaunchedEffect(Unit) {
         val accessToken = tokenManager.getAccessToken()
         if (accessToken != null) {
-            // TODO: Add token validation logic here
             onLoginSuccess()
         } else {
             isLoading = false
@@ -95,7 +95,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             if (response.isSuccessful && response.body() != null) {
                                 val tokenResponse = response.body()!!
                                 tokenManager.saveTokens(tokenResponse.access, tokenResponse.refresh)
-                                onLoginSuccess()
+
+                                val deviceDetailsResponse = apiService.getDeviceDetails()
+                                if (deviceDetailsResponse.isSuccessful && deviceDetailsResponse.body() != null) {
+                                    deviceDetailsManager.saveDeviceDetails(deviceDetailsResponse.body()!!)
+                                    onLoginSuccess()
+                                } else {
+                                    errorMessage = "Failed to fetch device details"
+                                }
                             } else {
                                 errorMessage = "Invalid credentials"
                             }

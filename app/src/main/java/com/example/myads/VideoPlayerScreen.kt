@@ -16,7 +16,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun VideoPlayerScreen() {
     val context = LocalContext.current
     val apiService = remember { NetworkModule.provideApiService(context) }
-    val viewModel: VideoViewModel = viewModel(factory = ViewModelFactory(apiService))
+    val deviceDetailsManager = remember { DeviceDetailsManager(context) }
+    val viewModel: VideoViewModel = viewModel(factory = ViewModelFactory(apiService, deviceDetailsManager))
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
