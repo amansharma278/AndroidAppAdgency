@@ -17,8 +17,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.myads.ui.theme.MyAdsTheme
 
-data class Ad(val id: Int, val title: String, val duration: String, val remainingPlays: Int, val schedule: String, val status: String, val videoUrl: String)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoListScreen(onAdClick: (Ad) -> Unit = {}) {
