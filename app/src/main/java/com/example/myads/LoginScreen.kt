@@ -11,7 +11,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myads.ui.theme.MyAdsTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -26,7 +28,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val apiService = remember { NetworkModule.provideApiService(context) }
 
     LaunchedEffect(Unit) {
-        val accessToken = tokenManager.getAccessToken()
+        val accessToken = withContext(Dispatchers.IO) {
+            tokenManager.getAccessToken()
+        }
         if (accessToken != null) {
             onLoginSuccess()
         } else {
@@ -91,14 +95,22 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         isLoading = true
                         errorMessage = null
                         try {
-                            val response = apiService.login(mapOf("username" to deviceId, "password" to secretKey))
+                            val response = withContext(Dispatchers.IO) {
+                                apiService.login(mapOf("username" to deviceId, "password" to secretKey))
+                            }
                             if (response.isSuccessful && response.body() != null) {
                                 val tokenResponse = response.body()!!
-                                tokenManager.saveTokens(tokenResponse.access, tokenResponse.refresh)
+                                withContext(Dispatchers.IO) {
+                                    tokenManager.saveTokens(tokenResponse.access, tokenResponse.refresh)
+                                }
 
-                                val deviceDetailsResponse = apiService.getDeviceDetails()
+                                val deviceDetailsResponse = withContext(Dispatchers.IO) {
+                                    apiService.getDeviceDetails()
+                                }
                                 if (deviceDetailsResponse.isSuccessful && deviceDetailsResponse.body() != null) {
-                                    deviceDetailsManager.saveDeviceDetails(deviceDetailsResponse.body()!!)
+                                    withContext(Dispatchers.IO) {
+                                        deviceDetailsManager.saveDeviceDetails(deviceDetailsResponse.body()!!)
+                                    }
                                     onLoginSuccess()
                                 } else {
                                     errorMessage = "Failed to fetch device details"

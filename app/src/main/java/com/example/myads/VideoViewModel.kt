@@ -2,11 +2,13 @@ package com.example.myads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class VideoUiState {
     object Loading : VideoUiState()
@@ -27,7 +29,9 @@ class VideoViewModel(
     fun fetchNextAd() {
         viewModelScope.launch {
             _uiState.value = VideoUiState.Loading
-            val deviceId = deviceDetailsManager.getDeviceId() ?: return@launch
+            val deviceId = withContext(Dispatchers.IO) {
+                deviceDetailsManager.getDeviceId()
+            } ?: return@launch
             try {
                 val response = apiService.getNextAd(deviceId)
                 if (response.isSuccessful && response.body() != null) {
@@ -45,7 +49,9 @@ class VideoViewModel(
 
     private fun addAdToQueue(ad: Ad) {
         viewModelScope.launch {
-            val deviceId = deviceDetailsManager.getDeviceId() ?: return@launch
+            val deviceId = withContext(Dispatchers.IO) {
+                deviceDetailsManager.getDeviceId()
+            } ?: return@launch
             try {
                 apiService.addAdToQueue(deviceId, AdQueueRequest(deviceId, ad.id, "In-Queue"))
                 updatePlayingStatus(ad.id, "Started")
@@ -58,7 +64,9 @@ class VideoViewModel(
 
     private fun updatePlayingStatus(adId: Int, status: String) {
         viewModelScope.launch {
-            val deviceId = deviceDetailsManager.getDeviceId() ?: return@launch
+            val deviceId = withContext(Dispatchers.IO) {
+                deviceDetailsManager.getDeviceId()
+            } ?: return@launch
             try {
                 apiService.updatePlayingStatus(deviceId, UpdatePlayingStatusRequest(adId, status))
             } catch (e: Exception) {
