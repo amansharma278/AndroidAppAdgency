@@ -1,6 +1,6 @@
-
 package com.example.myads
 
+import com.google.gson.annotations.SerializedName
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -17,6 +17,11 @@ data class AdQueueRequest(
     val status: String
 )
 
+data class UpdatePlayingStatusRequest(
+    val id: Int,
+    val status: String
+)
+
 interface ApiService {
     @POST("/api/token/")
     suspend fun login(@Body credentials: Map<String, String>): Response<TokenResponse>
@@ -29,4 +34,7 @@ interface ApiService {
 
     @POST("/api/device/1/add-in-queue/")
     suspend fun addAdToQueue(@Body adQueueRequest: AdQueueRequest): Response<Unit>
+
+    @POST("/api/device/1/update-playing-status/")
+    suspend fun updatePlayingStatus(@Body updatePlayingStatusRequest: UpdatePlayingStatusRequest): Response<Unit>
 }

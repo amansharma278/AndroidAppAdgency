@@ -33,7 +33,7 @@ fun VideoPlayerScreen() {
             }
             is VideoUiState.Success -> {
                 // TODO: Implement video player
-                Text(text = "Playing ad: ${state.ad.videoUrl}")
+                Text(text = "Playing ad: ${state.ad.video}")
             }
             is VideoUiState.Error -> {
                 Text(text = state.message)

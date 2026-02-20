@@ -21,9 +21,9 @@ import com.example.myads.ui.theme.MyAdsTheme
 @Composable
 fun VideoListScreen(onAdClick: (Ad) -> Unit = {}) {
     val ads = listOf(
-        Ad(1, "Summer Sale", "30s", 10, "10:00 - 12:00", "Active", "https://www.w3schools.com/tags/mov_bbb.mp4"),
-        Ad(2, "New Product Launch", "60s", 5, "14:00 - 15:00", "Scheduled", "https://www.w3schools.com/tags/mov_bbb.mp4"),
-        Ad(3, "Holiday Greetings", "15s", 100, "08:00 - 20:00", "Expired", "https://www.w3schools.com/tags/mov_bbb.mp4")
+        Ad(1, "Summer Sale", "Description", 30, 10, 1, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z", true, "2026-02-19T14:55:04.195875Z", "https://www.w3schools.com/tags/mov_bbb.mp4", 1),
+        Ad(2, "New Product Launch", "Description", 60, 5, 1, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z", true, "2026-02-19T14:55:04.195875Z", "https://www.w3schools.com/tags/mov_bbb.mp4", 1),
+        Ad(3, "Holiday Greetings", "Description", 15, 100, 1, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z", false, "2026-02-19T14:55:04.195875Z", "https://www.w3schools.com/tags/mov_bbb.mp4", 1)
     )
 
     Scaffold(
@@ -84,24 +84,20 @@ fun AdCard(ad: Ad, onAdClick: (Ad) -> Unit) {
                 Text(ad.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Duration: ${ad.duration}", style = MaterialTheme.typography.bodyMedium)
-                Text("Plays Left: ${ad.remainingPlays}", style = MaterialTheme.typography.bodyMedium)
-                Text("Schedule: ${ad.schedule}", style = MaterialTheme.typography.bodyMedium)
+                Text("Plays Left: ${ad.playLimit}", style = MaterialTheme.typography.bodyMedium)
+                Text("Schedule: ${ad.startDate} - ${ad.endDate}", style = MaterialTheme.typography.bodyMedium)
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            val statusColor = when (ad.status) {
-                "Active" -> Color(0xFF4CAF50)
-                "Scheduled" -> Color(0xFF2196F3)
-                else -> Color(0xFFF44336)
-            }
+            val statusColor = if (ad.isActive) Color(0xFF4CAF50) else Color(0xFFF44336)
 
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = statusColor.copy(alpha = 0.2f)
             ) {
                 Text(
-                    ad.status,
+                    if (ad.isActive) "Active" else "Inactive",
                     color = statusColor,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,

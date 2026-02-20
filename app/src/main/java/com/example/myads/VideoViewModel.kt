@@ -1,8 +1,9 @@
-
 package com.example.myads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -17,6 +18,8 @@ class VideoViewModel(private val apiService: ApiService) : ViewModel() {
 
     private val _uiState = MutableStateFlow<VideoUiState>(VideoUiState.Loading)
     val uiState: StateFlow<VideoUiState> = _uiState
+
+    private var statusUpdateJob: Job? = null
 
     fun fetchNextAd() {
         viewModelScope.launch {
@@ -40,9 +43,36 @@ class VideoViewModel(private val apiService: ApiService) : ViewModel() {
         viewModelScope.launch {
             try {
                 apiService.addAdToQueue(AdQueueRequest(1, ad.id, "In-Queue"))
+                updatePlayingStatus(ad.id, "Started")
+                startStatusUpdates(ad.id)
             } catch (e: Exception) {
                 // Handle error
             }
         }
+    }
+
+    private fun updatePlayingStatus(adId: Int, status: String) {
+        viewModelScope.launch {
+            try {
+                apiService.updatePlayingStatus(UpdatePlayingStatusRequest(adId, status))
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
+
+    private fun startStatusUpdates(adId: Int) {
+        statusUpdateJob?.cancel()
+        statusUpdateJob = viewModelScope.launch {
+            while (true) {
+                delay(20000)
+                updatePlayingStatus(adId, "Playing")
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        statusUpdateJob?.cancel()
     }
 }
