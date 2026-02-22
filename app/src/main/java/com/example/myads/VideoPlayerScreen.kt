@@ -19,6 +19,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun VideoPlayerScreen() {
@@ -46,6 +47,7 @@ fun VideoPlayerScreen() {
                 }
 
                 var isPlayingReported by remember { mutableStateOf(false) }
+                var aboutToCompleteReported by remember { mutableStateOf(false) }
 
                 LaunchedEffect(state.ad.videoUrl) {
                     val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${state.ad.videoUrl}"
@@ -64,6 +66,7 @@ fun VideoPlayerScreen() {
                             }
                             if (playbackState == Player.STATE_ENDED) {
                                 viewModel.updatePlayingStatus(state.ad.id, "Completed")
+                                viewModel.fetchNextAd()
                             }
                         }
                     }
@@ -74,18 +77,23 @@ fun VideoPlayerScreen() {
                     }
                 }
 
-                LaunchedEffect(exoPlayer.isPlaying) {
-                    if (exoPlayer.isPlaying) {
-                        var aboutToCompleteReported by mutableStateOf(false)
-                        while (true) {
-                            delay(20000)
+                LaunchedEffect(exoPlayer) {
+                    while (isActive) {
+                        if (exoPlayer.isPlaying) {
+                            delay(5000)
                             viewModel.updatePlayingStatus(state.ad.id, "Playing")
 
                             val remainingTime = exoPlayer.duration - exoPlayer.currentPosition
                             if (remainingTime <= 2000 && !aboutToCompleteReported) {
                                 viewModel.updatePlayingStatus(state.ad.id, "About to Complete")
                                 aboutToCompleteReported = true
+                            } else if (remainingTime > 2000 && aboutToCompleteReported) {
+                                // Reset when no longer near the end, e.g., after seeking or looping
+                                aboutToCompleteReported = false
                             }
+                        } else {
+                            // If player is not playing, no need to check status
+                            delay(1000) // check every second if the player has started
                         }
                     }
                 }
