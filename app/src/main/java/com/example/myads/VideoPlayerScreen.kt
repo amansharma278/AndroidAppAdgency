@@ -15,8 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
 
 @Composable
 fun VideoPlayerScreen() {
@@ -43,17 +45,48 @@ fun VideoPlayerScreen() {
                     ExoPlayer.Builder(context).build()
                 }
 
-                LaunchedEffect(state.ad.video) {
-                    val BASE_URL = "http://192.168.1.7:8000"
-                    val mediaItem = MediaItem.fromUri("${BASE_URL}/media/${state.ad.video}")
+                var isPlayingReported by remember { mutableStateOf(false) }
+
+                LaunchedEffect(state.ad.videoUrl) {
+                    val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${state.ad.videoUrl}"
+                    val mediaItem = MediaItem.fromUri(fullVideoUrl)
                     exoPlayer.setMediaItem(mediaItem)
                     exoPlayer.prepare()
                     exoPlayer.playWhenReady = true
                 }
 
                 DisposableEffect(Unit) {
+                    val listener = object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState == Player.STATE_READY && !isPlayingReported) {
+                                viewModel.updatePlayingStatus(state.ad.id, "Started")
+                                isPlayingReported = true
+                            }
+                            if (playbackState == Player.STATE_ENDED) {
+                                viewModel.updatePlayingStatus(state.ad.id, "Completed")
+                            }
+                        }
+                    }
+                    exoPlayer.addListener(listener)
                     onDispose {
+                        exoPlayer.removeListener(listener)
                         exoPlayer.release()
+                    }
+                }
+
+                LaunchedEffect(exoPlayer.isPlaying) {
+                    if (exoPlayer.isPlaying) {
+                        var aboutToCompleteReported by mutableStateOf(false)
+                        while (true) {
+                            delay(20000)
+                            viewModel.updatePlayingStatus(state.ad.id, "Playing")
+
+                            val remainingTime = exoPlayer.duration - exoPlayer.currentPosition
+                            if (remainingTime <= 2000 && !aboutToCompleteReported) {
+                                viewModel.updatePlayingStatus(state.ad.id, "About to Complete")
+                                aboutToCompleteReported = true
+                            }
+                        }
                     }
                 }
 

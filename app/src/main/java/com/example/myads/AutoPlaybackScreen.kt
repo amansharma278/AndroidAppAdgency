@@ -72,9 +72,10 @@ fun AutoPlaybackScreen(ad: Ad? = null, onAdminGesture: () -> Unit = {}) {
     }
 
     LaunchedEffect(currentAd) {
-        currentAd?.video?.let { url ->
+        currentAd?.videoUrl?.let { url ->
             Log.d("AutoPlaybackScreen", "Loading Video: $url")
-            val mediaItem = MediaItem.fromUri(url)
+            val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${url}"
+            val mediaItem = MediaItem.fromUri(fullVideoUrl)
             exoPlayer.setMediaItem(mediaItem)
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
@@ -179,6 +180,6 @@ private fun performDummyApiCall(adId: Int?, event: String) {
 @Composable
 fun AutoPlaybackScreenPreview() {
     MyAdsTheme {
-        AutoPlaybackScreen(ad = Ad(1, "Preview", "Description", 30, 10, 1, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z", true, "2026-02-19T14:55:04.195875Z", "https://www.w3schools.com/tags/mov_bbb.mp4", 1))
+        AutoPlaybackScreen(ad = Ad(1, "ads/3987730-hd_1920_1080_24fps_EJNBzBx.mp4", "Preview", "Description", 30, 10, 1, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z", true, "2026-02-19T14:55:04.195875Z", 6, 1))
     }
 }
