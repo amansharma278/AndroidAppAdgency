@@ -8,7 +8,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -18,8 +17,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 @Composable
 fun VideoPlayerScreen() {
@@ -29,6 +26,56 @@ fun VideoPlayerScreen() {
     val viewModel: VideoViewModel = viewModel(factory = ViewModelFactory(apiService, deviceDetailsManager))
     val uiState by viewModel.uiState.collectAsState()
 
+    // 1. Create and remember the PlayerView. It will be stable across all recompositions.
+    val playerView = remember {
+        PlayerView(context).apply {
+            useController = false
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+    }
+
+    // 2. This effect is keyed on the video URL. It will only re-run when the URL changes.
+    DisposableEffect((uiState as? VideoUiState.Success)?.ad?.videoUrl) {
+        val successState = uiState as? VideoUiState.Success
+        val player: ExoPlayer?
+
+        if (successState != null) {
+            // Create and configure a new player for the new video.
+            player = ExoPlayer.Builder(context).build().apply {
+                val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${successState.ad.videoUrl}"
+                val mediaItem = MediaItem.fromUri(fullVideoUrl)
+
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_ENDED) {
+                            viewModel.updatePlayingStatus(successState.adQueueId, "Completed")
+                            viewModel.fetchNextAd()
+                        }
+                    }
+                })
+            }
+            // Attach the new player to our stable PlayerView.
+            playerView.player = player
+        } else {
+            // Not in a success state, so there is no player.
+            player = null
+        }
+
+        onDispose {
+            // When the effect is disposed (because the key changed or the screen is left),
+            // release the player that was created in this effect run.
+            player?.release()
+        }
+    }
+
+    // Start fetching the first ad only when the component is first launched.
     LaunchedEffect(Unit) {
         viewModel.fetchNextAd()
     }
@@ -37,89 +84,20 @@ fun VideoPlayerScreen() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        // 3. The PlayerView is always in the composition.
+        AndroidView(factory = { playerView })
+
+        // 4. Show loading/error overlays on top of the PlayerView.
         when (val state = uiState) {
             is VideoUiState.Loading -> {
                 CircularProgressIndicator()
             }
-            is VideoUiState.Success -> {
-                val exoPlayer = remember(state.ad.videoUrl) {
-                    ExoPlayer.Builder(context).build()
-                }
-
-                DisposableEffect(exoPlayer) {
-                    onDispose {
-                        exoPlayer.release()
-                    }
-                }
-
-                var isPlayingReported by remember(exoPlayer) { mutableStateOf(false) }
-                var aboutToCompleteReported by remember(exoPlayer) { mutableStateOf(false) }
-
-                LaunchedEffect(exoPlayer, state.ad.videoUrl) {
-                    val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${state.ad.videoUrl}"
-                    val mediaItem = MediaItem.fromUri(fullVideoUrl)
-                    exoPlayer.setMediaItem(mediaItem)
-                    exoPlayer.prepare()
-                    exoPlayer.playWhenReady = true
-                }
-
-                DisposableEffect(exoPlayer, state.adQueueId) {
-                    val listener = object : Player.Listener {
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            if (playbackState == Player.STATE_READY && !isPlayingReported) {
-                                viewModel.updatePlayingStatus(state.adQueueId, "Started")
-                                isPlayingReported = true
-                            }
-                            if (playbackState == Player.STATE_ENDED) {
-                                viewModel.updatePlayingStatus(state.adQueueId, "Completed")
-                                viewModel.fetchNextAd()
-                            }
-                        }
-                    }
-                    exoPlayer.addListener(listener)
-                    onDispose {
-                        exoPlayer.removeListener(listener)
-                    }
-                }
-
-                LaunchedEffect(exoPlayer, state.adQueueId) {
-                    while (isActive) {
-                        if (exoPlayer.isPlaying) {
-                            delay(5000)
-                            viewModel.updatePlayingStatus(state.adQueueId, "Playing")
-
-                            val remainingTime = exoPlayer.duration - exoPlayer.currentPosition
-                            if (remainingTime <= 2000 && !aboutToCompleteReported) {
-                                viewModel.updatePlayingStatus(state.adQueueId, "About to Complete")
-                                aboutToCompleteReported = true
-                            } else if (remainingTime > 2000 && aboutToCompleteReported) {
-                                aboutToCompleteReported = false
-                            }
-                        } else {
-                            delay(1000)
-                        }
-                    }
-                }
-
-                AndroidView(
-                    factory = {
-                        PlayerView(context).apply {
-                            player = exoPlayer
-                            useController = false
-                            layoutParams = FrameLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                        }
-                    },
-                    update = { view ->
-                        view.player = exoPlayer
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
             is VideoUiState.Error -> {
                 Text(text = state.message)
+            }
+            is VideoUiState.Success -> {
+                // The player is handled by the DisposableEffect above.
+                // No action needed here.
             }
         }
     }
