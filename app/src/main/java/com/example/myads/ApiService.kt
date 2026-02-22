@@ -17,6 +17,13 @@ data class AdQueueRequest(
     val status: String
 )
 
+data class AdQueueResponse(
+    val id: Int,
+    val device: Int,
+    val ad: Int,
+    val status: String
+)
+
 data class UpdatePlayingStatusRequest(
     val id: Int,
     val status: String
@@ -36,7 +43,7 @@ interface ApiService {
     suspend fun getNextAd(@Path("deviceId") deviceId: Int): Response<Ad>
 
     @POST("/api/device/{deviceId}/add-in-queue/")
-    suspend fun addAdToQueue(@Path("deviceId") deviceId: Int, @Body adQueueRequest: AdQueueRequest): Response<Unit>
+    suspend fun addAdToQueue(@Path("deviceId") deviceId: Int, @Body adQueueRequest: AdQueueRequest): Response<AdQueueResponse>
 
     @POST("/api/device/{deviceId}/update-playing-status/")
     suspend fun updatePlayingStatus(@Path("deviceId") deviceId: Int, @Body updatePlayingStatusRequest: UpdatePlayingStatusRequest): Response<Unit>

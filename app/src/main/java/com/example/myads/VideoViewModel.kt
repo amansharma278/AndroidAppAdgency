@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 
 sealed class VideoUiState {
     object Loading : VideoUiState()
-    data class Success(val ad: Ad) : VideoUiState()
+    data class Success(val ad: Ad, val adQueueId: Int) : VideoUiState()
     data class Error(val message: String) : VideoUiState()
 }
 
@@ -32,7 +32,6 @@ class VideoViewModel(
                 val response = apiService.getNextAd(deviceId)
                 if (response.isSuccessful && response.body() != null) {
                     val ad = response.body()!!
-                    _uiState.value = VideoUiState.Success(ad)
                     addAdToQueue(ad)
                 } else {
                     _uiState.value = VideoUiState.Error("Failed to fetch next ad")
@@ -49,20 +48,27 @@ class VideoViewModel(
                 deviceDetailsManager.getDeviceId()
             } ?: return@launch
             try {
-                apiService.addAdToQueue(deviceId, AdQueueRequest(deviceId, ad.id, "In-Queue"))
+                val adQueueRequest = AdQueueRequest(device = deviceId, ad = ad.id, status = "In-Queue")
+                val response = apiService.addAdToQueue(deviceId, adQueueRequest)
+                if (response.isSuccessful && response.body() != null) {
+                    val adQueueId = response.body()!!.id
+                    _uiState.value = VideoUiState.Success(ad, adQueueId)
+                } else {
+                    _uiState.value = VideoUiState.Error("Failed to add ad to queue")
+                }
             } catch (e: Exception) {
-                // Handle error
+                 _uiState.value = VideoUiState.Error("An error occurred: ${e.message}")
             }
         }
     }
 
-    fun updatePlayingStatus(adId: Int, status: String) {
+    fun updatePlayingStatus(adQueueId: Int, status: String) {
         viewModelScope.launch {
             val deviceId = withContext(Dispatchers.IO) {
                 deviceDetailsManager.getDeviceId()
             } ?: return@launch
             try {
-                apiService.updatePlayingStatus(deviceId, UpdatePlayingStatusRequest(adId, status))
+                apiService.updatePlayingStatus(deviceId, UpdatePlayingStatusRequest(id = adQueueId, status = status))
             } catch (e: Exception) {
                 // Handle error
             }

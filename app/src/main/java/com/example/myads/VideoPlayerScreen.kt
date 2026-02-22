@@ -42,14 +42,20 @@ fun VideoPlayerScreen() {
                 CircularProgressIndicator()
             }
             is VideoUiState.Success -> {
-                val exoPlayer = remember {
+                val exoPlayer = remember(state.ad.videoUrl) {
                     ExoPlayer.Builder(context).build()
                 }
 
-                var isPlayingReported by remember { mutableStateOf(false) }
-                var aboutToCompleteReported by remember { mutableStateOf(false) }
+                DisposableEffect(exoPlayer) {
+                    onDispose {
+                        exoPlayer.release()
+                    }
+                }
 
-                LaunchedEffect(state.ad.videoUrl) {
+                var isPlayingReported by remember(exoPlayer) { mutableStateOf(false) }
+                var aboutToCompleteReported by remember(exoPlayer) { mutableStateOf(false) }
+
+                LaunchedEffect(exoPlayer, state.ad.videoUrl) {
                     val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${state.ad.videoUrl}"
                     val mediaItem = MediaItem.fromUri(fullVideoUrl)
                     exoPlayer.setMediaItem(mediaItem)
@@ -57,15 +63,15 @@ fun VideoPlayerScreen() {
                     exoPlayer.playWhenReady = true
                 }
 
-                DisposableEffect(Unit) {
+                DisposableEffect(exoPlayer, state.adQueueId) {
                     val listener = object : Player.Listener {
                         override fun onPlaybackStateChanged(playbackState: Int) {
                             if (playbackState == Player.STATE_READY && !isPlayingReported) {
-                                viewModel.updatePlayingStatus(state.ad.id, "Started")
+                                viewModel.updatePlayingStatus(state.adQueueId, "Started")
                                 isPlayingReported = true
                             }
                             if (playbackState == Player.STATE_ENDED) {
-                                viewModel.updatePlayingStatus(state.ad.id, "Completed")
+                                viewModel.updatePlayingStatus(state.adQueueId, "Completed")
                                 viewModel.fetchNextAd()
                             }
                         }
@@ -73,27 +79,24 @@ fun VideoPlayerScreen() {
                     exoPlayer.addListener(listener)
                     onDispose {
                         exoPlayer.removeListener(listener)
-                        exoPlayer.release()
                     }
                 }
 
-                LaunchedEffect(exoPlayer) {
+                LaunchedEffect(exoPlayer, state.adQueueId) {
                     while (isActive) {
                         if (exoPlayer.isPlaying) {
                             delay(5000)
-                            viewModel.updatePlayingStatus(state.ad.id, "Playing")
+                            viewModel.updatePlayingStatus(state.adQueueId, "Playing")
 
                             val remainingTime = exoPlayer.duration - exoPlayer.currentPosition
                             if (remainingTime <= 2000 && !aboutToCompleteReported) {
-                                viewModel.updatePlayingStatus(state.ad.id, "About to Complete")
+                                viewModel.updatePlayingStatus(state.adQueueId, "About to Complete")
                                 aboutToCompleteReported = true
                             } else if (remainingTime > 2000 && aboutToCompleteReported) {
-                                // Reset when no longer near the end, e.g., after seeking or looping
                                 aboutToCompleteReported = false
                             }
                         } else {
-                            // If player is not playing, no need to check status
-                            delay(1000) // check every second if the player has started
+                            delay(1000)
                         }
                     }
                 }
@@ -108,6 +111,9 @@ fun VideoPlayerScreen() {
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                         }
+                    },
+                    update = { view ->
+                        view.player = exoPlayer
                     },
                     modifier = Modifier.fillMaxSize()
                 )
