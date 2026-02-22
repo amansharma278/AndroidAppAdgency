@@ -1,5 +1,6 @@
 package com.example.myads
 
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun VideoPlayerScreen() {
@@ -26,7 +29,6 @@ fun VideoPlayerScreen() {
     val viewModel: VideoViewModel = viewModel(factory = ViewModelFactory(apiService, deviceDetailsManager))
     val uiState by viewModel.uiState.collectAsState()
 
-    // 1. Create and remember the PlayerView. It will be stable across all recompositions.
     val playerView = remember {
         PlayerView(context).apply {
             useController = false
@@ -37,13 +39,12 @@ fun VideoPlayerScreen() {
         }
     }
 
-    // 2. This effect is keyed on the video URL. It will only re-run when the URL changes.
     DisposableEffect((uiState as? VideoUiState.Success)?.ad?.videoUrl) {
         val successState = uiState as? VideoUiState.Success
         val player: ExoPlayer?
 
         if (successState != null) {
-            // Create and configure a new player for the new video.
+            var isPlayingReported = false
             player = ExoPlayer.Builder(context).build().apply {
                 val fullVideoUrl = "${NetworkModule.BASE_URL}/media/${successState.ad.videoUrl}"
                 val mediaItem = MediaItem.fromUri(fullVideoUrl)
@@ -54,28 +55,56 @@ fun VideoPlayerScreen() {
 
                 addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY && !isPlayingReported) {
+                            Log.d("VideoPlayerScreen", "Attempting to report 'Started' status for adQueueId: ${successState.adQueueId}")
+                            viewModel.updatePlayingStatus(successState.adQueueId, "Started")
+                            isPlayingReported = true
+                        }
                         if (playbackState == Player.STATE_ENDED) {
+                            Log.d("VideoPlayerScreen", "Attempting to report 'Completed' status for adQueueId: ${successState.adQueueId}")
                             viewModel.updatePlayingStatus(successState.adQueueId, "Completed")
                             viewModel.fetchNextAd()
                         }
                     }
                 })
             }
-            // Attach the new player to our stable PlayerView.
             playerView.player = player
         } else {
-            // Not in a success state, so there is no player.
             player = null
         }
 
         onDispose {
-            // When the effect is disposed (because the key changed or the screen is left),
-            // release the player that was created in this effect run.
+            playerView.player = null
             player?.release()
         }
     }
 
-    // Start fetching the first ad only when the component is first launched.
+    LaunchedEffect((uiState as? VideoUiState.Success)?.ad?.videoUrl) {
+        val successState = uiState as? VideoUiState.Success
+        if (successState != null) {
+            var aboutToCompleteReported = false
+            while (isActive) {
+                val player = playerView.player
+                if (player?.isPlaying == true) {
+                    delay(5000) // Every 5 seconds
+                    Log.d("VideoPlayerScreen", "Attempting to report 'Playing' status for adQueueId: ${successState.adQueueId}")
+                    viewModel.updatePlayingStatus(successState.adQueueId, "Playing")
+
+                    val remainingTime = player.duration - player.currentPosition
+                    if (remainingTime <= 2000 && !aboutToCompleteReported) {
+                        Log.d("VideoPlayerScreen", "Attempting to report 'About to Complete' status for adQueueId: ${successState.adQueueId}")
+                        viewModel.updatePlayingStatus(successState.adQueueId, "About to Complete")
+                        aboutToCompleteReported = true
+                    } else if (remainingTime > 2000 && aboutToCompleteReported) {
+                        aboutToCompleteReported = false
+                    }
+                } else {
+                    delay(1000)
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.fetchNextAd()
     }
@@ -84,20 +113,18 @@ fun VideoPlayerScreen() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // 3. The PlayerView is always in the composition.
         AndroidView(factory = { playerView })
 
-        // 4. Show loading/error overlays on top of the PlayerView.
-        when (val state = uiState) {
+        when (uiState) {
             is VideoUiState.Loading -> {
                 CircularProgressIndicator()
             }
             is VideoUiState.Error -> {
-                Text(text = state.message)
+                val errorState = uiState as VideoUiState.Error
+                Text(text = errorState.message)
             }
             is VideoUiState.Success -> {
-                // The player is handled by the DisposableEffect above.
-                // No action needed here.
+                // Player is handled in the DisposableEffect
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.example.myads
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -64,13 +65,25 @@ class VideoViewModel(
 
     fun updatePlayingStatus(adQueueId: Int, status: String) {
         viewModelScope.launch {
-            val deviceId = withContext(Dispatchers.IO) {
-                deviceDetailsManager.getDeviceId()
-            } ?: return@launch
-            try {
-                apiService.updatePlayingStatus(deviceId, UpdatePlayingStatusRequest(id = adQueueId, status = status))
+            val deviceId = try {
+                withContext(Dispatchers.IO) {
+                    deviceDetailsManager.getDeviceId()
+                }
             } catch (e: Exception) {
-                // Handle error
+                Log.e("VideoViewModel", "Failed to get deviceId", e)
+                null
+            } ?: return@launch
+
+            try {
+                Log.d("VideoViewModel", "Updating status for adQueueId: $adQueueId to '$status'")
+                val response = apiService.updatePlayingStatus(deviceId, UpdatePlayingStatusRequest(id = adQueueId, status = status))
+                if (!response.isSuccessful) {
+                    Log.e("VideoViewModel", "Failed to update status. Code: ${response.code()}, Message: ${response.message()}, Body: ${response.errorBody()?.string()}")
+                } else {
+                    Log.d("VideoViewModel", "Successfully updated status for adQueueId: $adQueueId to '$status'")
+                }
+            } catch (e: Exception) {
+                Log.e("VideoViewModel", "Exception while updating status for adQueueId: $adQueueId to '$status'", e)
             }
         }
     }
