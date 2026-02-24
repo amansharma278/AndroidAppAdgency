@@ -91,11 +91,11 @@ fun VideoPlayerScreen() {
                     viewModel.updatePlayingStatus(successState.adQueueId, "Playing")
 
                     val remainingTime = player.duration - player.currentPosition
-                    if (remainingTime <= 2000 && !aboutToCompleteReported) {
+                    if (remainingTime <= 10000 && !aboutToCompleteReported) {
                         Log.d("VideoPlayerScreen", "Attempting to report 'About to Complete' status for adQueueId: ${successState.adQueueId}")
                         viewModel.updatePlayingStatus(successState.adQueueId, "About to Complete")
                         aboutToCompleteReported = true
-                    } else if (remainingTime > 2000 && aboutToCompleteReported) {
+                    } else if (remainingTime > 10000 && aboutToCompleteReported) {
                         aboutToCompleteReported = false
                     }
                 } else {
